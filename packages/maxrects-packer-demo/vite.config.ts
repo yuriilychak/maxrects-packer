@@ -7,7 +7,7 @@ import { dirname } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const libDir = resolve(__dirname, "../../lib");
-const wasmFiles = ["maxrects_packer_bg.wasm"];
+const wasmFiles = ["maxrects-packer.wasm"];
 
 /**
  * Vite plugin that serves WASM artifacts from the monorepo lib/ directory

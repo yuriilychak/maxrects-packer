@@ -24,7 +24,7 @@ let wasmReady = false;
 export async function initWasm(): Promise<void> {
   if (wasmReady) return;
   const base = import.meta.env.BASE_URL;
-  await initWasmGlue(`${base}wasm/maxrects_packer_bg.wasm`);
+  await initWasmGlue(`${base}wasm/maxrects-packer.wasm`);
   wasmReady = true;
 }
 

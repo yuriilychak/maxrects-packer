@@ -6,7 +6,7 @@
  * import { MaxRectsPackerWasm } from 'maxrects-packer';
  *
  * const packer = await MaxRectsPackerWasm.create({
- *   wasmUrl: '/maxrects_packer_bg.wasm',
+ *   wasmUrl: '/maxrects-packer.wasm',
  *   workerSource: new URL('./worker.js', import.meta.url),
  * });
  *

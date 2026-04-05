@@ -12,20 +12,19 @@
       "types": "../../lib/maxrects-packer.d.ts"
     },
     "./worker": {
-      "import": "../../lib/maxrects-packer.worker.js",
-      "types": "../../lib/maxrects-packer.worker.d.ts"
+      "import": "../../lib/maxrects-packer.worker.js"
     }
   },
   "scripts": {
-    "build": "rollup -c && tsc --emitDeclarationOnly --declaration --outDir ../../lib && mv ../../lib/index.d.ts ../../lib/maxrects-packer.d.ts && mv ../../lib/worker.d.ts ../../lib/maxrects-packer.worker.d.ts && cp src/wasm_glue.d.ts ../../lib/wasm_glue.d.ts",
+    "build": "rollup -c",
     "test": "tsc --noEmit"
   },
-  "dependencies": {},
   "devDependencies": {
-    "maxrects-packer-algo": "*",
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.1.0",
+    "maxrects-packer-algo": "*",
     "rollup": "^4.34.0",
+    "rollup-plugin-dts": "^6.4.1",
     "tslib": "^2.8.0",
     "typescript": "~5.7.0"
   },
