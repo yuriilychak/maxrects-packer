@@ -1,0 +1,23 @@
+.canvas-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+.canvas-container canvas {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.canvas-placeholder {
+  color: #9ca3af;
+  font-size: 15px;
+  text-align: center;
+  padding: 40px 0;
+}

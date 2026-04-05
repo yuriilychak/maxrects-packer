@@ -1,0 +1,11 @@
+{
+  "name": "maxrects-packer-algo",
+  "version": "1.0.0",
+  "description": "Max rectangle 2D bin packer — WASM algorithm module (Rust + SIMD)",
+  "license": "MIT",
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir ../../lib && rm -f ../../lib/package.json ../../lib/.gitignore",
+    "test": "cargo test --target x86_64-unknown-linux-gnu"
+  },
+  "sideEffects": false
+}

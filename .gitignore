@@ -21,16 +21,17 @@ coverage
 .nyc_output
 
 # Grunt intermediate storage (http://gruntjs.com/creating-plugins#storing-task-files)
-.grunt
+.history/
 
-# Bower dependency directory (https://bower.io/)
-bower_components
+.vscode/
 
 # node-waf configuration
 .lock-wscript
 
 # Compiled binary addons (http://nodejs.org/api/addons.html)
 build/Release
+
+rust/target/
 
 # Dependency directories
 node_modules/
@@ -46,6 +47,8 @@ typings/
 .eslintcache
 .eslintrc
 
+.turbo/
+
 # Optional REPL history
 .node_repl_history
 
@@ -57,4 +60,11 @@ typings/
 
 # dotenv environment variables file
 .env
+
+
+packages/**/.turbo/
+
+packages/**/.cargo/
+
+packages/**/target/
 

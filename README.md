@@ -1,90 +1,197 @@
-# Max Rects Packer
-[![Build Status](https://travis-ci.org/soimy/maxrects-packer.svg?branch=master)](https://travis-ci.org/soimy/maxrects-packer)
-[![Coverage Status](https://coveralls.io/repos/github/soimy/maxrects-packer/badge.svg?branch=master)](https://coveralls.io/github/soimy/maxrects-packer?branch=master)
-[![npm version](https://badge.fury.io/js/maxrects-packer.svg)](https://badge.fury.io/js/maxrects-packer)
+# Max Rects Packer (WASM Fork)
 
-A simple max rectangle 2d bin packing algorithm for packing glyphs or images into multiple sprite-sheet/atlas. Minimalist with no module dependency.
+A high-performance max-rectangle 2D bin packing algorithm compiled to **WebAssembly** with optional **SIMD** acceleration and **WebWorker** parallelism.
 
-This is a evolved version of [Multi-Bin-Packer](https://github.com/marekventur/multi-bin-packer) with much effiecent packing algorithm. All interfaces and methods are inherited so no tweaks needed in your current code except module name.
+> **Fork of [soimy/maxrects-packer](https://github.com/soimy/maxrects-packer)** — rewritten from pure TypeScript to a Rust/WASM core with a TypeScript async wrapper.
 
-It differs from the long list of similar packages by its packing approach: Instead of creating one output bin with a minimum size this package is trying to create a minimum number of bins under a certain size. This avoids problems with single massive image files that are not browser-friendly. This can be especially useful for WebGL games where the GPU will benefit from spritesheets close to power-of-2 sizes.
-
-And you can also save/load to reuse packer to add new sprites. (Below is a demo atlas packed with two difference bitmap fonts)
+This packer is designed for packing glyphs or images into multiple sprite-sheet/atlas. Instead of creating one output bin with a minimum size, it creates a minimum number of bins under a given size — avoiding single massive images that are not browser-friendly. Especially useful for WebGL games where the GPU benefits from spritesheets close to power-of-2 sizes.
 
 ![Preview image](https://raw.githubusercontent.com/soimy/maxrects-packer/master/preview.png)
 
-## Usage:
-**Notice:** *Since version 2.0.0beta Max Rects Packer is rewritten in `typescript` and change the import method from old `require("maxrects-packer")` to `require("maxrects-packer").MaxRectsPacker` or more fashioned `import` statement.*
+## What changed in this fork
+
+| Aspect | Original (v2.x) | This fork (v3.0.0) |
+|--------|-----------------|---------------------|
+| **Core language** | TypeScript | Rust → WebAssembly |
+| **Architecture** | Single package | Turborepo monorepo (3 packages) |
+| **API style** | Synchronous | Async (WebWorker pool) |
+| **Parallelism** | None | Multi-threaded via WebWorkers |
+| **SIMD** | None | Optional WASM simd128 |
+| **WASM boundary** | N/A | Binary serialization protocol |
+| **Build system** | tsc | wasm-pack + Rollup + Turbo |
+
+### Key improvements
+
+- **WASM-compiled algorithm** — the packing hot path runs as optimized WebAssembly instead of interpreted JavaScript
+- **SIMD acceleration** — optional `simd128` feature batches 8 rectangles per SIMD operation for `find_best_fit` and `prune_contained`
+- **WebWorker parallelism** — input is sorted, split into chunks via round-robin, processed in parallel across workers, then partial bins are merged
+- **Efficient binary protocol** — all data crosses the WASM boundary as compact `Uint8Array` buffers (8 bytes per input rect) instead of JS objects
+
+## Monorepo structure
+
+```
+├── packages/
+│   ├── maxrects-packer-algo/   # Rust → WASM core algorithm
+│   ├── maxrects-packer/        # TypeScript async wrapper + workers
+│   └── maxrects-packer-demo/   # React + Vite interactive demo
+├── lib/                        # Compiled output (WASM + JS + types)
+├── turbo.json                  # Build pipeline
+└── package.json                # Workspace root
+```
+
+## Usage
 
 ```bash
-npm install maxrects-packer --save
+npm install maxrects-packer
 ```
 
-```javascript
-let MaxRectsPacker = require("maxrects-packer").MaxRectsPacker;
-const options = {
-    smart: true,
-    pot: true,
-    square: false
-}; // Set packing options
-let packer = new MaxRectsPacker(1024, 1024, 2, options); // width, height, padding, options
+```typescript
+import init, * as wasm from 'maxrects-packer-algo';
+import { MaxRectsPackerWasm } from 'maxrects-packer';
 
-let input = [
-    {width: 600, height: 20, data: {name: "tree", foo: "bar"}},
-    {width: 600, height: 20, data: {name: "flower"}},
-    {width: 2000, height: 2000, data: {name: "oversized background"}},
-    {width: 1000, height: 1000, data: {name: "background"}},
-    {width: 1000, height: 1000, data: {name: "overlay"}}
-];
+// Initialize WASM module
+await init();
 
-packer.addArray(input); // Start packing with input array
-packer.bins.forEach(bin => {
-    console.log(bin.rects);
+// Create packer with WebWorker pool
+const packer = await MaxRectsPackerWasm.create({
+    wasm,
+    wasmUrl: './pkg/maxrects_packer.js',
+    workerSource: new URL('maxrects-packer/worker', import.meta.url),
+    width: 1024,            // Max bin width (default: 4096)
+    height: 1024,           // Max bin height (default: 4096)
+    padding: 2,             // Padding between rects (default: 0)
+    numWorkers: 4,          // Worker count (default: navigator.hardwareConcurrency)
+    options: {
+        smart: true,        // Smallest possible bin size (default: true)
+        pot: true,          // Power-of-2 bin sizing (default: true)
+        square: false       // Force square bins (default: false)
+    }
 });
 
-// Reuse packer 
-let bins = packer.save();
-packer.load(bins);
-packer.addArray(input);
+const input = [
+    { x: 0, y: 0, width: 600, height: 20, data: { name: "tree", foo: "bar" } },
+    { x: 0, y: 0, width: 600, height: 20, data: { name: "flower" } },
+    { x: 0, y: 0, width: 2000, height: 2000, data: { name: "oversized background" } },
+    { x: 0, y: 0, width: 1000, height: 1000, data: { name: "background" } },
+    { x: 0, y: 0, width: 1000, height: 1000, data: { name: "overlay" } }
+];
 
+// Pack rectangles (async — uses WebWorkers)
+const bins = await packer.addArray(input);
 
-```
+bins.forEach(bin => {
+    console.log(`Bin ${bin.width}×${bin.height}`, bin.rects);
+});
 
-## Test
-```
-npm test
+// Clean up workers when done
+packer.terminate();
 ```
 
 ## API
 
-Note: maxrects-packer requires node >= 4.0.0
+### `MaxRectsPackerWasm.create(options): Promise<MaxRectsPackerWasm>`
 
-#### ```new MaxRectsPacker(maxWidth, maxHeight[, padding, options])```
-Creates a new Packer. maxWidth and maxHeight are passed on to all bins. If ```padding``` is supplied all rects will be kept at least ```padding``` pixels apart.
-- `options.smart` packing with smallest possible size. (default is `true`)
-- `options.pot` bin size round up to smallest power of 2. (defalt is `true`)
-- `options.square` bin size shall alway be square. (defaut is `false`) 
+Creates and initializes a WASM packer with a WebWorker pool.
 
-#### ```packer.add(width, height, data)```
-Adds a rect to an existing bin or creates a new one to accomodate it. ```data``` can be anything, it will be stored along with the position data of each rect.
+**Options:**
 
-#### ```packer.addArray([{width: width, height: height, data: data}, ...])```
-Adds multiple rects. Since the input is automatically sorted before adding this approach usually leads to fewer bins created than separate calls to ```.add()```
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `wasm` | `WasmExports` | *required* | Initialized WASM module exports |
+| `wasmUrl` | `string` | *required* | URL to the wasm-bindgen JS module (for worker init) |
+| `workerSource` | `string \| URL \| (() => Worker)` | *required* | Worker script URL or factory |
+| `width` | `number` | `4096` | Max bin width |
+| `height` | `number` | `4096` | Max bin height |
+| `padding` | `number` | `0` | Padding between rectangles |
+| `numWorkers` | `number` | `navigator.hardwareConcurrency` | Number of WebWorkers |
+| `options` | `IOption` | `{ smart: true, pot: true, square: false }` | Packing options |
 
-#### ```let bins = packer.save()```
-Save current bins settings and free area to an Array of objects for later use. Better to `JSON.stringify(bins)` and store in file.
+### `packer.addArray(rects): Promise<BinResult[]>`
 
-#### ```packer.load(bins)```
-Restore previous saved `let bins = JSON.parse(fs.readFileSync(savedFile, 'utf8'));` settings and overwrite current one. Continue packing and previous packed area will not be overlaped.
+Packs an array of rectangles using parallel WebWorkers. Each rect must have `x`, `y`, `width`, `height`, and optionally `data` (any value — preserved through packing via tag mapping).
 
-#### ```packer.bins```
-Array of bins. Every bin has a ```width``` and ```height``` parameter as well as an array ```rects```.
+**Packing flow:**
+1. Serialize rects to binary (`Uint8Array`)
+2. WASM sorts by `max(width, height)` descending and splits into chunks (round-robin)
+3. Workers process chunks in parallel via WASM `process_chunk`
+4. WASM `merge_results` keeps full bins intact, repacks partial bins
+5. Deserialize to typed `BinResult[]` with original `data` restored
 
-#### ```packer.bins[n].rects```
-Array of rects for a specific bin. Every rect has ```x```, ```y```, ```width```, ```height``` and ```data```. In case of an rect exceeding ```maxWidth```/```maxHeight``` there will also be an ```oversized``` flag set to ```true```.
+### `packer.bins: BinResult[]`
+
+Array of bins from the last `addArray` call. Each bin contains:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `width` | `number` | Bin width |
+| `height` | `number` | Bin height |
+| `maxWidth` | `number` | Max width constraint |
+| `maxHeight` | `number` | Max height constraint |
+| `oversized` | `boolean` | Whether this bin exceeds max constraints |
+| `rects` | `IRectangle[]` | Packed rectangles with `x`, `y`, `width`, `height`, `data` |
+| `options` | `IOption` | Packing options used |
+
+### `packer.terminate(): void`
+
+Terminates all WebWorkers and releases resources. Call when done packing.
+
+### Packing options (`IOption`)
+
+- **`smart`** — packing with smallest possible bin size (default: `true`)
+- **`pot`** — bin size rounds up to the smallest power of 2 (default: `true`)
+- **`square`** — bin size is always square (default: `false`)
+
+## Low-level WASM API
+
+The WASM module also exposes a synchronous single-threaded API (used by the demo):
+
+```typescript
+import init, { MaxRectsPacker } from 'maxrects-packer-algo';
+
+await init();
+
+const packer = new MaxRectsPacker(1024, 1024, 2, 0b011); // options as u8 bitfield
+packer.add(600, 20, 0);      // width, height, data tag (u32)
+packer.addArray(binaryData);  // Uint8Array: [width_i16, height_i16, tag_u32] × N
+
+const binsData = packer.bins; // Uint8Array (binary serialized)
+const saved = packer.save();  // Uint8Array (save state)
+packer.load(saved);           // Restore state
+
+// Free-function parallel API:
+const chunks = prepare_chunks(inputData, numWorkers);
+const result = process_chunk(chunk, width, height, padding, options);
+const merged = merge_results(serializedResults, width, height, padding, options);
+```
 
 ## Support for oversized rectangles
-Nornally all bins are of equal size or smaller than ```maxWidth```/```maxHeight```. If a rect is added that individually does not fit into those constraints a special bin will be created. This bin will only contain a single rect with a special "oversized" flag. This can be handled further on in the chain by displaying an error/warning or by simply ignoring it.
+
+Normally all bins are equal to or smaller than `maxWidth`/`maxHeight`. If a rect is added that individually does not fit into those constraints, a special bin is created. This bin contains only that single rect with an `oversized` flag set to `true`.
+
+## Building
+
+**Prerequisites:** Rust toolchain, [wasm-pack](https://rustwasm.github.io/wasm-pack/), Node.js
+
+```bash
+# Install dependencies
+npm install
+
+# Build all packages (algo → wrapper → demo)
+npx turbo run build
+
+# Build only the WASM algorithm
+cd packages/maxrects-packer-algo
+npm run build          # wasm-pack build --target web --out-dir ../../lib
+
+# Run Rust tests
+cd packages/maxrects-packer-algo
+cargo test --target x86_64-unknown-linux-gnu
+
+# Run the demo
+cd packages/maxrects-packer-demo
+npm run dev
+```
 
 ## Packing algorithm
-Use Max Rectangle Algorithm for packing, same as famous **Texture Packer**
+
+Uses the Max Rectangles algorithm (best-area-fit with short-side tiebreaker), the same approach used by **Texture Packer**. The WASM implementation optionally accelerates the rectangle search and free-list pruning with SIMD intrinsics.
