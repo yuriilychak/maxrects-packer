@@ -25,6 +25,8 @@ coverage
 
 .vscode/
 
+.vite/
+
 # node-waf configuration
 .lock-wscript
 
