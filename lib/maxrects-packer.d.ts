@@ -3,13 +3,10 @@
  *
  * @example
  * ```ts
- * import init, * as wasm from './pkg/maxrects_packer.js';
  * import { MaxRectsPackerWasm } from 'maxrects-packer';
  *
- * await init();
  * const packer = await MaxRectsPackerWasm.create({
- *   wasm,
- *   wasmUrl: './pkg/maxrects_packer.js',
+ *   wasmUrl: '/maxrects_packer_bg.wasm',
  *   workerSource: new URL('./worker.js', import.meta.url),
  * });
  *
@@ -20,4 +17,6 @@
 export { IRectangle, IOption } from "./types";
 export { BinResult, serializeOptions, serializeInputRects, deserializeChunks, serializeWorkerResults, deserializeBins } from "./serialization";
 export { WorkerPool, WorkerPoolOptions } from "./worker_pool";
-export { WasmExports, MaxRectsPackerWasmOptions, MaxRectsPackerWasm } from "./packer";
+export { MaxRectsPackerWasmOptions, MaxRectsPackerWasm } from "./packer";
+export { initWasm, initSync, MaxRectsPacker, process_chunk, prepare_chunks, merge_results } from "./wasm_glue.js";
+export { default as initWasmDefault } from "./wasm_glue.js";

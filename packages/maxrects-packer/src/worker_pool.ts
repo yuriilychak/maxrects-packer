@@ -1,8 +1,8 @@
 /**
  * Pool of WebWorkers for parallel WASM chunk processing.
  *
- * Each worker loads its own WASM instance and processes chunks independently.
- * The pool dispatches chunks to available workers and collects results.
+ * Each worker receives a copy of the WASM binary and instantiates it
+ * synchronously using the bundled glue code. No network fetches in workers.
  */
 
 export interface WorkerPoolOptions {
@@ -14,8 +14,8 @@ export interface WorkerPoolOptions {
      * - function: called to create each Worker (for custom bundler setups)
      */
     workerSource: string | URL | (() => Worker);
-    /** URL of the wasm-bindgen JS module (passed to worker for init) */
-    wasmUrl: string;
+    /** Pre-fetched WASM binary to send to each worker */
+    wasmBinary: ArrayBuffer;
 }
 
 interface PendingTask {
@@ -65,7 +65,7 @@ export class WorkerPool {
                 worker.addEventListener('message', onMessage);
             });
 
-            worker.postMessage({ type: 'init', wasmUrl: options.wasmUrl });
+            worker.postMessage({ type: 'init', wasmBinary: options.wasmBinary });
             initPromises.push(initPromise);
         }
 

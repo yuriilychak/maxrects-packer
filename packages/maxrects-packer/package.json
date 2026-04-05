@@ -17,13 +17,12 @@
     }
   },
   "scripts": {
-    "build": "rollup -c && tsc --emitDeclarationOnly --declaration --outDir ../../lib && mv ../../lib/index.d.ts ../../lib/maxrects-packer.d.ts && mv ../../lib/worker.d.ts ../../lib/maxrects-packer.worker.d.ts && rm -f ../../lib/types.d.ts ../../lib/serialization.d.ts ../../lib/packer.d.ts ../../lib/worker_pool.d.ts",
+    "build": "rollup -c && tsc --emitDeclarationOnly --declaration --outDir ../../lib && mv ../../lib/index.d.ts ../../lib/maxrects-packer.d.ts && mv ../../lib/worker.d.ts ../../lib/maxrects-packer.worker.d.ts && cp src/wasm_glue.d.ts ../../lib/wasm_glue.d.ts",
     "test": "tsc --noEmit"
   },
-  "dependencies": {
-    "maxrects-packer-algo": "*"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "maxrects-packer-algo": "*",
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.1.0",
     "rollup": "^4.34.0",

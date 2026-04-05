@@ -20,16 +20,7 @@ import {
     serializeWorkerResults
 } from "./serialization";
 import { WorkerPool, WorkerPoolOptions } from "./worker_pool";
-
-/**
- * Interface for the wasm-bindgen generated module.
- * The consumer provides the initialized module.
- */
-export interface WasmExports {
-    prepare_chunks (rects: Uint8Array, num_chunks: number): Uint8Array;
-    process_chunk (chunk: Uint8Array, width: number, height: number, padding: number, options: number): Uint8Array;
-    merge_results (results: Uint8Array, width: number, height: number, padding: number, options: number): Uint8Array;
-}
+import initWasm, { prepare_chunks, merge_results } from "./wasm_glue.js";
 
 export interface MaxRectsPackerWasmOptions {
     /** Max atlas width (default 4096) */
@@ -44,10 +35,16 @@ export interface MaxRectsPackerWasmOptions {
     numWorkers?: number;
     /** Worker source — URL string, URL object, or factory function */
     workerSource: string | URL | (() => Worker);
-    /** URL of the wasm-bindgen JS module for worker init */
-    wasmUrl: string;
-    /** Initialized WASM module exports (main thread instance) */
-    wasm: WasmExports;
+    /**
+     * URL to fetch the .wasm binary from.
+     * Provide either wasmUrl or wasmBinary, not both.
+     */
+    wasmUrl?: string | URL;
+    /**
+     * Pre-fetched WASM binary (ArrayBuffer).
+     * Provide either wasmUrl or wasmBinary, not both.
+     */
+    wasmBinary?: ArrayBuffer;
 }
 
 export class MaxRectsPackerWasm {
@@ -56,7 +53,6 @@ export class MaxRectsPackerWasm {
     public readonly padding: number;
     public readonly packerOptions: IOption;
 
-    private wasm: WasmExports;
     private pool: WorkerPool;
     private optionsBits: number;
 
@@ -68,7 +64,6 @@ export class MaxRectsPackerWasm {
 
     private constructor (
         config: { width: number; height: number; padding: number; options: IOption },
-        wasm: WasmExports,
         pool: WorkerPool
     ) {
         this.width = config.width;
@@ -76,21 +71,20 @@ export class MaxRectsPackerWasm {
         this.padding = config.padding;
         this.packerOptions = config.options;
         this.optionsBits = serializeOptions(config.options);
-        this.wasm = wasm;
         this.pool = pool;
     }
 
     /**
      * Create and initialize a WASM packer with a WebWorker pool.
      *
+     * The WASM binary is fetched once (or provided directly) and a copy is
+     * sent to each worker. Workers instantiate WASM synchronously from the
+     * bundled glue code — no additional network requests.
+     *
      * @example
      * ```ts
-     * import init, * as wasm from './pkg/maxrects_packer.js';
-     * await init();
-     *
      * const packer = await MaxRectsPackerWasm.create({
-     *   wasm,
-     *   wasmUrl: './pkg/maxrects_packer.js',
+     *   wasmUrl: '/maxrects_packer_bg.wasm',
      *   workerSource: new URL('./worker.js', import.meta.url),
      *   numWorkers: 4,
      *   options: { smart: true, pot: true, square: false }
@@ -107,17 +101,31 @@ export class MaxRectsPackerWasm {
             options: opts.options != null ? opts.options : { smart: true, pot: true, square: false },
         };
 
+        // Resolve WASM binary: fetch once or use provided buffer
+        let wasmBinary: ArrayBuffer;
+        if (opts.wasmBinary) {
+            wasmBinary = opts.wasmBinary;
+        } else if (opts.wasmUrl) {
+            const response = await fetch(opts.wasmUrl as RequestInfo);
+            wasmBinary = await response.arrayBuffer();
+        } else {
+            throw new Error('MaxRectsPackerWasm.create requires either wasmUrl or wasmBinary');
+        }
+
+        // Init main-thread WASM instance (async to avoid sync compilation size limits)
+        await initWasm(wasmBinary);
+
         const defaultWorkers = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 4;
         const numWorkers = opts.numWorkers != null ? opts.numWorkers : (defaultWorkers || 4);
 
         const poolOpts: WorkerPoolOptions = {
             numWorkers,
             workerSource: opts.workerSource,
-            wasmUrl: opts.wasmUrl,
+            wasmBinary,
         };
 
         const pool = await WorkerPool.create(poolOpts);
-        return new MaxRectsPackerWasm(config, opts.wasm, pool);
+        return new MaxRectsPackerWasm(config, pool);
     }
 
     /** Current bins result (populated after addArray) */
@@ -147,7 +155,7 @@ export class MaxRectsPackerWasm {
 
         // 2. WASM: sort + split into chunks (round-robin distribution)
         const numWorkers = this.pool['workers'].length;
-        const chunksData = this.wasm.prepare_chunks(inputData, numWorkers);
+        const chunksData = prepare_chunks(inputData, numWorkers);
         const chunks = deserializeChunks(chunksData);
 
         // 3. Dispatch chunks to WebWorker pool
@@ -160,7 +168,7 @@ export class MaxRectsPackerWasm {
 
         // 4. WASM: merge worker results (full bins + repack partial bins)
         const mergeInput = serializeWorkerResults(workerResults);
-        const finalData = this.wasm.merge_results(
+        const finalData = merge_results(
             mergeInput,
             this.width,
             this.height,

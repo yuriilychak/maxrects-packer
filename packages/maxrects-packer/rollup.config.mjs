@@ -10,7 +10,6 @@ export default [
       format: "esm",
       sourcemap: true
     },
-    external: ["maxrects-packer-algo"],
     plugins: [
       typescript({
         compilerOptions: {
@@ -22,7 +21,7 @@ export default [
       terser()
     ]
   },
-  // Worker entry point (minified)
+  // Worker entry point (minified) — glue code is bundled in
   {
     input: "src/worker.ts",
     output: {

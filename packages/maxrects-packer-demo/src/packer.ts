@@ -1,3 +1,5 @@
+import { initWasm as initWasmGlue, MaxRectsPacker } from "maxrects-packer";
+
 export interface Rect {
   width: number;
   height: number;
@@ -17,15 +19,12 @@ export interface Bin {
   rects: PackedRect[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let wasmModule: any = null;
 let wasmReady = false;
 
 export async function initWasm(): Promise<void> {
   if (wasmReady) return;
   const base = import.meta.env.BASE_URL;
-  wasmModule = await import(/* @vite-ignore */ `${base}wasm/maxrects_packer.js`);
-  await wasmModule.default();
+  await initWasmGlue(`${base}wasm/maxrects_packer_bg.wasm`);
   wasmReady = true;
 }
 
@@ -80,7 +79,7 @@ export async function packRects(
   await initWasm();
   // smart=true (bit0), pot=false, square=false
   const options = 1;
-  const packer = new wasmModule.MaxRectsPacker(
+  const packer = new MaxRectsPacker(
     areaWidth,
     areaHeight,
     0,
