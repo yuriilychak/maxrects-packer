@@ -6,6 +6,8 @@ A high-performance max-rectangle 2D bin packing algorithm compiled to **WebAssem
 
 This packer is designed for packing glyphs or images into multiple sprite-sheet/atlas. Instead of creating one output bin with a minimum size, it creates a minimum number of bins under a given size — avoiding single massive images that are not browser-friendly. Especially useful for WebGL games where the GPU benefits from spritesheets close to power-of-2 sizes.
 
+**[Live Demo](https://yuriilychak.github.io/maxrects-packer/)**
+
 ![Preview image](https://raw.githubusercontent.com/soimy/maxrects-packer/master/preview.png)
 
 ## What changed in this fork
@@ -46,16 +48,11 @@ npm install maxrects-packer
 ```
 
 ```typescript
-import init, * as wasm from 'maxrects-packer-algo';
 import { MaxRectsPackerWasm } from 'maxrects-packer';
-
-// Initialize WASM module
-await init();
 
 // Create packer with WebWorker pool
 const packer = await MaxRectsPackerWasm.create({
-    wasm,
-    wasmUrl: './pkg/maxrects_packer.js',
+    wasmUrl: './wasm/maxrects-packer.wasm',
     workerSource: new URL('maxrects-packer/worker', import.meta.url),
     width: 1024,            // Max bin width (default: 4096)
     height: 1024,           // Max bin height (default: 4096)
@@ -97,8 +94,8 @@ Creates and initializes a WASM packer with a WebWorker pool.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `wasm` | `WasmExports` | *required* | Initialized WASM module exports |
-| `wasmUrl` | `string` | *required* | URL to the wasm-bindgen JS module (for worker init) |
+| `wasmUrl` | `string \| URL` | — | URL to the `.wasm` binary file (provide this or `wasmBinary`) |
+| `wasmBinary` | `ArrayBuffer` | — | Pre-fetched WASM binary (provide this or `wasmUrl`) |
 | `workerSource` | `string \| URL \| (() => Worker)` | *required* | Worker script URL or factory |
 | `width` | `number` | `4096` | Max bin width |
 | `height` | `number` | `4096` | Max bin height |
@@ -146,9 +143,9 @@ Terminates all WebWorkers and releases resources. Call when done packing.
 The WASM module also exposes a synchronous single-threaded API (used by the demo):
 
 ```typescript
-import init, { MaxRectsPacker } from 'maxrects-packer-algo';
+import initWasm, { MaxRectsPacker, prepare_chunks, process_chunk, merge_results } from 'maxrects-packer';
 
-await init();
+await initWasm({ module: wasmBinary }); // pass ArrayBuffer or Response
 
 const packer = new MaxRectsPacker(1024, 1024, 2, 0b011); // options as u8 bitfield
 packer.add(600, 20, 0);      // width, height, data tag (u32)
